@@ -69,6 +69,7 @@ import { ReportsCenter } from "ReportsCenter";
 import { Experiment, Variant, Default as ExDefault } from "Experiment";
 import { RatingCalculator } from "RatingCalculator";
 import { AccountWarning } from "AccountWarning";
+import { NetworkStatus } from "NetworkStatus";
 
 import * as docs from "docs";
 
@@ -96,6 +97,9 @@ function Main(props): JSX.Element {
                         <Announcements />
                     </ErrorBoundary>
                     <ErrorBoundary>
+                        <NetworkStatus />
+                    </ErrorBoundary>
+                    <ErrorBoundary>
                         <AccountWarning />
                     </ErrorBoundary>
                 </div>
@@ -107,6 +111,9 @@ function Main(props): JSX.Element {
                     </ErrorBoundary>
                     <ErrorBoundary>
                         <Announcements />
+                    </ErrorBoundary>
+                    <ErrorBoundary>
+                        <NetworkStatus />
                     </ErrorBoundary>
                     <ErrorBoundary>{props.children}</ErrorBoundary>
                     <ErrorBoundary>

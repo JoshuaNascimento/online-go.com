@@ -40,10 +40,14 @@ interface GameHistoryProps {
     user_id: number;
 }
 
-type ResultClass =
-    | `library-${"won" | "lost" | "tie"}-result${"-vs-stronger" | "-vs-weaker" | "-unranked" | ""}`;
+type ResultClass = `library-${"won" | "lost" | "tie"}-result${
+    | "-vs-stronger"
+    | "-vs-weaker"
+    | "-unranked"
+    | ""}`;
 
 interface GroomedGame {
+    bot_detection_results: Record<string, any>;
     id: number;
     annulled: boolean;
     ranked: boolean;
@@ -186,6 +190,7 @@ export function GameHistoryTable(props: GameHistoryProps) {
             item.href = `/game/${item.id}`;
             item.result = getGameResultRichText(r);
             item.flags = r.flags && props.user_id in r.flags ? r.flags[props.user_id] : undefined;
+            item.bot_detection_results = r.bot_detection_results;
 
             ret.push(item);
         }
@@ -203,6 +208,7 @@ export function GameHistoryTable(props: GameHistoryProps) {
                             annulQueue={annulQueue}
                             setAnnulQueue={setAnnulQueue}
                             onClose={handleCloseAnnulQueueModal}
+                            forDetectedAI={false}
                         />
                     )}
                     {/* loading-container="game_history.settings().$loading" */}
@@ -223,12 +229,7 @@ export function GameHistoryTable(props: GameHistoryProps) {
                                         <button
                                             className="sm info"
                                             onClick={() =>
-                                                openAnnulQueueModal(
-                                                    annulQueue,
-                                                    setSelectModeActive,
-                                                    setAnnulQueue,
-                                                    setIsAnnulQueueModalOpen,
-                                                )
+                                                openAnnulQueueModal(setIsAnnulQueueModalOpen)
                                             }
                                         >
                                             {_("View Queue")} {`(${annulQueue.length})`}
@@ -407,17 +408,33 @@ export function GameHistoryTable(props: GameHistoryProps) {
                                 className: (X) =>
                                     X ? X.result_class + (X.annulled ? " annulled" : "") : "",
                                 render: (X) => {
-                                    if (!hide_flags && X.flags) {
+                                    if (
+                                        !hide_flags &&
+                                        (X.flags ||
+                                            X.bot_detection_results?.ai_suspected.includes(
+                                                props.user_id,
+                                            ))
+                                    ) {
                                         let str = "";
-                                        for (const flag of Object.keys(X.flags)) {
-                                            if (flag === "blur_rate") {
-                                                str +=
-                                                    flag +
-                                                    ": " +
-                                                    Math.round((X.flags[flag] as number) * 100.0) +
-                                                    "%\n";
-                                            } else {
-                                                str += flag + ": " + X.flags[flag] + "\n";
+                                        if (
+                                            X.bot_detection_results?.ai_suspected.includes(
+                                                props.user_id,
+                                            )
+                                        ) {
+                                            str += "AI Suspected";
+                                        } else if (X.flags) {
+                                            for (const flag of Object.keys(X.flags)) {
+                                                if (flag === "blur_rate") {
+                                                    str +=
+                                                        flag +
+                                                        ": " +
+                                                        Math.round(
+                                                            (X.flags[flag] as number) * 100.0,
+                                                        ) +
+                                                        "%\n";
+                                                } else {
+                                                    str += flag + ": " + X.flags[flag] + "\n";
+                                                }
                                             }
                                         }
 

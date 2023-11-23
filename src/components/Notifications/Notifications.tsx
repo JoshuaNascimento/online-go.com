@@ -29,6 +29,7 @@ import { deepEqual } from "misc";
 import { isLiveGame, durationString } from "TimeControl";
 
 import { notification_manager } from "./NotificationManager";
+import { openModerationOfferModal } from "./ModerationOfferModal";
 
 export function NotificationList(): JSX.Element {
     const [, setCount] = React.useState(notification_manager.ordered_notifications.length);
@@ -155,6 +156,10 @@ class NotificationEntry extends React.Component<{ notification }, any> {
         return null;
     }
 
+    isDismissable() {
+        return this.props.notification.type !== "moderationOffer";
+    }
+
     render() {
         if (this.state.message) {
             return <div>{this.state.message + "..."}</div>;
@@ -172,7 +177,7 @@ class NotificationEntry extends React.Component<{ notification }, any> {
                 }`}
                 onClick={this.open}
             >
-                <i className="fa fa-times-circle" onClick={this.del} />
+                {this.isDismissable() && <i className="fa fa-times-circle" onClick={this.del} />}
                 {inner}
             </div>
         );
@@ -200,7 +205,7 @@ class NotificationEntry extends React.Component<{ notification }, any> {
                             <FabX
                                 onClick={() => {
                                     this.setState({ message: _("Declining") });
-                                    del("me/challenges/%%", notification.challenge_id)
+                                    del(`me/challenges/${notification.challenge_id}`)
                                         .then(this.del)
                                         .catch(this.onError);
                                 }}
@@ -208,7 +213,7 @@ class NotificationEntry extends React.Component<{ notification }, any> {
                             <FabCheck
                                 onClick={() => {
                                     this.setState({ message: _("Accepting") });
-                                    post("me/challenges/%%/accept", notification.challenge_id, {})
+                                    post(`me/challenges/${notification.challenge_id}/accept`, {})
                                         .then(() => {
                                             this.del();
                                             if (
@@ -509,6 +514,27 @@ class NotificationEntry extends React.Component<{ notification }, any> {
                                 username: notification.from.username,
                             })}
                         </a>
+                    </div>
+                );
+
+            case "moderationOffer":
+                return (
+                    <div className="moderation-offer">
+                        <span>{_("You qualify for access to community moderation tools!")}</span>
+                        <button
+                            onClick={() =>
+                                openModerationOfferModal(
+                                    notification.player_id,
+                                    notification.offered_powers,
+                                    this.del,
+                                )
+                            }
+                        >
+                            {pgettext(
+                                "Label of a button to get details of community moderation offer",
+                                "Details",
+                            )}
+                        </button>
                     </div>
                 );
 

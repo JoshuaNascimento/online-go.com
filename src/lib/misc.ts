@@ -21,7 +21,7 @@ import { browserHistory } from "ogsHistory";
 import * as preferences from "preferences";
 import { alert } from "swal_config";
 
-export const MOD_POWER_ANNUL = 1; // Matches back-end MOD_POWER
+export const MOD_POWER_HANDLE_SCORE_CHEAT = 1; // Matches back-end MOD_POWER
 
 export type Timeout = ReturnType<typeof setTimeout>;
 
@@ -248,6 +248,10 @@ export function getPrintableError(err) {
     }
 
     if (err instanceof Error) {
+        if (err.name === "AbortError") {
+            /* ignore aborted requests' */
+            return;
+        }
         console.error(err.stack);
         return err.toString();
     }
@@ -277,11 +281,6 @@ export function getPrintableError(err) {
             }
             return "An unknown error has occurred!";
         }
-    }
-
-    if (obj.status === 0 && obj.statusText === "abort") {
-        /* ignore aborted requests' */
-        return;
     }
 
     /*

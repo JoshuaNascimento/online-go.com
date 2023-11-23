@@ -67,6 +67,7 @@ const PLAY_CONTROLS_DEFAULTS = {
         return;
     },
     annulled: false,
+    annulment_reason: null,
     zen_mode: false,
     selected_chat_log: "main",
     stopEstimatingScore: () => {
@@ -289,7 +290,7 @@ test("Pause buttons show up", () => {
         </WrapTest>,
     );
     act(() => {
-        // It would be more realistic to mock the "game/%%/clock" socket event,
+        // It would be more realistic to mock the "game/${id}/clock" socket event,
         // but AdHocClock is a complicated object and I'm not sure what params
         // to use to get the goban to actually pause.
         goban.pause_control = {

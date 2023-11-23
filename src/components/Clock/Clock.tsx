@@ -28,11 +28,13 @@ export function Clock({
     color,
     className,
     compact,
+    lineSummary,
 }: {
     goban: Goban;
     color: clock_color;
     className?: string;
     compact?: boolean;
+    lineSummary?: boolean;
 }): JSX.Element {
     const [clock, setClock] = useState<JGOFClockWithTransmitting>(null);
     const [submitting_move, _setSubmittingMove] = useState<boolean>(false);
@@ -100,6 +102,8 @@ export function Clock({
         // use use a smaller font
         const need_small_main_time_font = prettyTime(player_clock.main_time).length > 8;
 
+        const show_pause = !compact && clock.pause_state;
+
         return (
             <span className={clock_className}>
                 {player_clock.main_time > 0 && (
@@ -146,31 +150,38 @@ export function Clock({
                     </div>
                 )}
 
-                {time_control.system === "canadian" && (!compact || player_clock.main_time <= 0) && (
-                    <React.Fragment>
-                        <span className="canadian-clock-container">
-                            {player_clock.main_time > 0 && (
-                                <span className="periods-delimiter"> + </span>
-                            )}
-                            <span className="period-time boxed">
-                                {prettyTime(player_clock.block_time_left)}
+                {time_control.system === "canadian" &&
+                    (!compact || player_clock.main_time <= 0) && (
+                        <React.Fragment>
+                            <span className="canadian-clock-container">
+                                {player_clock.main_time > 0 && (
+                                    <span className="periods-delimiter"> + </span>
+                                )}
+                                <span className="period-time boxed">
+                                    {prettyTime(player_clock.block_time_left)}
+                                </span>
+                                <span className="periods-delimiter">/</span>
+                                <span className="period-moves boxed">
+                                    {player_clock.moves_left}
+                                </span>
                             </span>
-                            <span className="periods-delimiter">/</span>
-                            <span className="period-moves boxed">{player_clock.moves_left}</span>
-                        </span>
-                    </React.Fragment>
-                )}
+                        </React.Fragment>
+                    )}
 
-                <div className="pause-and-transmit">
-                    {(submitting_move && player_id !== data.get("user").id) || transmitting > 0 ? (
-                        <span className="transmitting fa fa-wifi" title={transmitting.toFixed(0)} />
-                    ) : (
-                        <span className="transmitting" />
-                    )}
-                    {!compact && clock.pause_state && (
-                        <ClockPauseReason clock={clock} player_id={player_id} />
-                    )}
-                </div>
+                {(show_pause || !lineSummary) && (
+                    <div className="pause-and-transmit">
+                        {(submitting_move && player_id !== data.get("user").id) ||
+                        transmitting > 0 ? (
+                            <span
+                                className="transmitting fa fa-wifi"
+                                title={transmitting.toFixed(0)}
+                            />
+                        ) : (
+                            <span className="transmitting" />
+                        )}
+                        {show_pause && <ClockPauseReason clock={clock} player_id={player_id} />}
+                    </div>
+                )}
             </span>
         );
     }

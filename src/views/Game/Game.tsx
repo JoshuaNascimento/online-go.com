@@ -71,6 +71,7 @@ import { GobanContainer } from "GobanContainer";
 import { GobanContext } from "./goban_context";
 import { is_valid_url } from "url_validation";
 import { disableTouchAction, enableTouchAction } from "./touch_actions";
+import { BotDetectionResults } from "./BotDetectionResults";
 
 export function Game(): JSX.Element {
     const params = useParams<"game_id" | "review_id" | "move_number">();
@@ -125,6 +126,7 @@ export function Game(): JSX.Element {
     const [black_flags, set_black_flags] = React.useState<null | rest_api.GamePlayerFlags>(null);
     const [white_flags, set_white_flags] = React.useState<null | rest_api.GamePlayerFlags>(null);
     const [annulled, set_annulled] = React.useState(false);
+    const [annulment_reason, set_annulment_reason] = React.useState<rest_api.AnnulmentReason>(null);
     const [ai_review_enabled, set_ai_review_enabled] = React.useState(
         preferences.get("ai-review-enabled"),
     );
@@ -143,6 +145,8 @@ export function Game(): JSX.Element {
     const show_title = useShowTitle(goban.current);
     const [, set_undo_requested] = React.useState<number | undefined>();
     const [, forceUpdate] = React.useState<number>();
+    const [bot_detection_results, set_bot_detection_results] = React.useState(null);
+    const [show_bot_detection_results, set_show_bot_detection_results] = React.useState(false);
 
     /* Functions */
     const getLocation = (): string => {
@@ -447,6 +451,10 @@ export function Game(): JSX.Element {
         set_show_game_timing(!show_game_timing);
     };
 
+    const toggleShowBotDetectionResults = () => {
+        set_show_bot_detection_results(!show_bot_detection_results);
+    };
+
     const gameLogModalMarkCoords = (stones_string: string) => {
         for (let i = 0; i < goban.current.config.width; i++) {
             for (let j = 0; j < goban.current.config.height; j++) {
@@ -645,7 +653,7 @@ export function Game(): JSX.Element {
                 })
                 .then(({ value: accept }) => {
                     if (accept) {
-                        post("games/%%/reviews", game_id, {})
+                        post(`games/${game_id}/reviews`, {})
                             .then((res) => browserHistory.push(`/review/${res.id}`))
                             .catch(errorAlerter);
                     }
@@ -761,6 +769,7 @@ export function Game(): JSX.Element {
             updateVariationName={updateVariationName}
             variationKeyPress={variationKeyPress}
             annulled={annulled}
+            annulment_reason={annulment_reason}
             zen_mode={zen_mode}
             selected_chat_log={selected_chat_log}
             stopEstimatingScore={stopEstimatingScore}
@@ -804,6 +813,18 @@ export function Game(): JSX.Element {
             );
         }
         return null;
+    };
+
+    const frag_bot_detection_results = () => {
+        if (bot_detection_results?.ai_suspected.length > 0) {
+            return (
+                <BotDetectionResults
+                    bot_detection_results={bot_detection_results}
+                    game_id={game_id}
+                    updateBotDetectionResults={set_bot_detection_results}
+                />
+            );
+        }
     };
 
     const frag_timings = () => {
@@ -1269,7 +1290,7 @@ export function Game(): JSX.Element {
         }
 
         if (game_id) {
-            get("games/%%", game_id)
+            get(`games/${game_id}`)
                 .then((game: rest_api.GameDetails) => {
                     if (game.players.white.id) {
                         player_cache.update(game.players.white, true);
@@ -1293,8 +1314,10 @@ export function Game(): JSX.Element {
                     tournament_id.current = game.tournament;
 
                     set_annulled(game.annulled);
+                    set_annulment_reason(game.annulment_reason);
                     set_historical_black(game.historical_ratings.black);
                     set_historical_white(game.historical_ratings.white);
+                    set_bot_detection_results(game.bot_detection_results);
 
                     goban_div.current.setAttribute("data-game-id", game_id.toString());
 
@@ -1305,6 +1328,17 @@ export function Game(): JSX.Element {
                         if (game.players.white.id && game.players.white.id in game.flags) {
                             set_white_flags(game.flags[game.players.white.id]);
                         }
+                    }
+
+                    // folk think auto-zen-mode makes no sense for correspondence...
+                    const live = isLiveGame(
+                        JSON.parse(game.time_control_parameters),
+                        game.width,
+                        game.height,
+                    );
+
+                    if (!live) {
+                        set_zen_mode(false);
                     }
 
                     if (ladder_id.current) {
@@ -1325,15 +1359,15 @@ export function Game(): JSX.Element {
                     }
                 })
                 .catch((e) => {
-                    if (e.statusText === "abort") {
-                        console.error("Error: abort", e);
+                    if (e.name === "AbortError") {
+                        //console.error("Error: abort", e);
                         return;
                     }
-                    if (e.statusText === "Not Found") {
+                    if (e.status === 404 || e.statusText === "Not Found") {
                         console.error("Error: not found, handled 10s later by socket.ts", e);
                         return;
                     }
-                    console.error(e);
+                    console.error(e.name, e);
                     void alert.fire({
                         title: "Failed to load game data: " + e.statusText,
                         icon: "error",
@@ -1342,7 +1376,7 @@ export function Game(): JSX.Element {
         }
 
         if (review_id) {
-            get("reviews/%%", review_id)
+            get(`reviews/${review_id}`)
                 .then((review) => {
                     if (review.game && review.game.historical_ratings) {
                         set_historical_black(review.game.historical_ratings.black);
@@ -1475,6 +1509,12 @@ export function Game(): JSX.Element {
                                 zen_mode={zen_mode}
                                 black_flags={black_flags}
                                 white_flags={white_flags}
+                                black_ai_suspected={bot_detection_results?.ai_suspected.includes(
+                                    historical_black.id,
+                                )}
+                                white_ai_suspected={bot_detection_results?.ai_suspected.includes(
+                                    historical_white.id,
+                                )}
                             />
                         )}
 
@@ -1517,6 +1557,8 @@ export function Game(): JSX.Element {
                                 onTimingClicked={toggleShowTiming}
                                 onCoordinatesMarked={gameLogModalMarkCoords}
                                 onReviewClicked={startReview}
+                                onDetectionResultsClicked={toggleShowBotDetectionResults}
+                                ai_suspected={bot_detection_results?.ai_suspected.length > 0}
                             />
                         )}
                     </div>
@@ -1532,6 +1574,12 @@ export function Game(): JSX.Element {
                                     zen_mode={zen_mode}
                                     black_flags={black_flags}
                                     white_flags={white_flags}
+                                    black_ai_suspected={bot_detection_results?.ai_suspected.includes(
+                                        historical_black?.id,
+                                    )}
+                                    white_ai_suspected={bot_detection_results?.ai_suspected.includes(
+                                        historical_white?.id,
+                                    )}
                                 />
                             )}
 
@@ -1542,6 +1590,10 @@ export function Game(): JSX.Element {
                             {(view_mode === "square" || view_mode === "wide" || null) &&
                                 show_game_timing &&
                                 frag_timings()}
+
+                            {(view_mode === "square" || view_mode === "wide" || null) &&
+                                show_bot_detection_results &&
+                                frag_bot_detection_results()}
 
                             {review ? frag_review_controls() : frag_play_controls(true)}
 
@@ -1568,6 +1620,8 @@ export function Game(): JSX.Element {
                                 onTimingClicked={toggleShowTiming}
                                 onCoordinatesMarked={gameLogModalMarkCoords}
                                 onReviewClicked={startReview}
+                                onDetectionResultsClicked={toggleShowBotDetectionResults}
+                                ai_suspected={bot_detection_results?.ai_suspected.length > 0}
                             />
                             {(zen_mode || null) && <div className="align-col-end"></div>}
                         </div>
